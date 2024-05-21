@@ -10,6 +10,7 @@ import UIKit
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
+    var coordinator: ApplicationCoordinator?
 
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
@@ -21,11 +22,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             self.window = UIWindow(windowScene: windowScene)
         }
         
-        let controller = PokemonListController(viewModel: PokemonListViewModel())
-        controller.title = NSLocalizedString("Pokedex", comment: "")
-        let navController = UINavigationController(rootViewController: controller)
+        if let window = self.window {
+            self.coordinator = ApplicationCoordinator(window: window)
+            self.coordinator?.start()
+        }
         
-        self.window?.rootViewController = navController
         self.window?.overrideUserInterfaceStyle = .light
         self.window?.makeKeyAndVisible()
     }

@@ -151,6 +151,10 @@ class PokemonListView: UIView, UICollectionViewDelegateFlowLayout {
     
 }
 
+protocol PokemonListControllerDelegate: AnyObject {
+    func pokemonList(controller: PokemonListController, didSelect pokemon: PokemonViewModel)
+}
+
 class PokemonListController: UIViewController, PokemonListViewDataSource, PokemonListViewDelegate {
     
     private lazy var pokemonListView: PokemonListView = {
@@ -163,6 +167,8 @@ class PokemonListController: UIViewController, PokemonListViewDataSource, Pokemo
     
     private var viewModel: PokemonListViewModel
     private var subscriptions = Set<AnyCancellable>()
+    
+    weak var delegate: PokemonListControllerDelegate?
 
     //MARK: Initialization
     
@@ -236,8 +242,7 @@ class PokemonListController: UIViewController, PokemonListViewDataSource, Pokemo
     
     func pokemon(listView: PokemonListView, didSelect index: Int) {
         let pokemonViewModel = self.viewModel.datasource[index]
-        let controller = PokemonDetailsController(pokemon: pokemonViewModel)
-        self.navigationController?.pushViewController(controller, animated: true)
+        self.delegate?.pokemonList(controller: self, didSelect: pokemonViewModel)
     }
     
     func pokemon(listVIew: PokemonListView, willDisplayLast cell: UICollectionViewCell) {
