@@ -12,34 +12,21 @@ import Foundation
 
 protocol APIResource {
     associatedtype ModelType: Decodable
+    associatedtype Payload: Encodable
+    
     var methodPath: String { get }
     var queryItems: [URLQueryItem]? { get }
     var url: URL { get }
-}
-
-extension APIResource {
-//    var url: URL {
-//       
-//        //TODO: Initialize the base url diffrently
-//        let baseURL = URL(string: "https://pokeapi.co/api/v2/")!
-//        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
-//        
-//        // Prepend / if it does not exist in path, otherwise the url components creation will fail
-//        let path = self.methodPath
-//        if !path.starts(with: "/") {
-//            components.path = components.path.appending("/")
-//        }
-//        components.path = components.path.appending(path)
-//        
-//        components.queryItems = self.queryItems
-//        return components.url!
-//    }
+    var method: String { get }
+    
 }
 
 protocol NetworkRequest: AnyObject {
     associatedtype ModelType
+    associatedtype Payload
     func decode(_ data: Data) throws -> ModelType?
-    func execute(withCompletion completion: @escaping (ModelType?, Error?) -> Void)
+    func encode(_ payload: Payload) throws -> Data?
+    func execute(body: Payload?, withCompletion completion: @escaping (ModelType?, Error?) -> Void)
 }
 
 enum NetworkRequestError: Error, LocalizedError {
@@ -54,15 +41,15 @@ enum NetworkRequestError: Error, LocalizedError {
 }
 
 extension NetworkRequest {
-    fileprivate func load(_ url: URL, withCompletion completion: @escaping (ModelType?, Error?) -> Void) {
+    fileprivate func load(request: URLRequest,  withCompletion completion: @escaping (ModelType?, Error?) -> Void) {
         
-        var request = URLRequest(url: url)
+        var request = request
         
-        if let token = SymbleSDKSettings.apiKey {
+        if let token = ApiSettings.apiKey {
             request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
         }
         
-        let task = SymbleSDKSettings.session.dataTask(with: request) { [weak self] (data, _ , error) -> Void in
+        let task = ApiSettings.session.dataTask(with: request) { [weak self] (data, _ , error) -> Void in
             
             guard error == nil else {
                 completion(nil, error)
@@ -74,14 +61,12 @@ extension NetworkRequest {
                 return
             }
             
-            if let string = String(data: data, encoding: .utf8) {
-                print("kurac \(string)")
-            }
-            
             do {
                 let value = try self?.decode(data)
                 DispatchQueue.main.async { completion(value, nil) }
             }
+            
+
             
             catch let error {
                 completion(nil, error)
@@ -94,14 +79,23 @@ extension NetworkRequest {
 class APIRequest<Resource: APIResource> {
     
     let resource: Resource
+    let request: URLRequest
     
     init(resource: Resource) {
         self.resource = resource
+        
+        var request = URLRequest(url: resource.url)
+        request.httpMethod = resource.method
+        
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        self.request = request
     }
 }
 
 extension APIRequest: NetworkRequest {
-        
+
     typealias ModelType = Resource.ModelType
     
     func decode(_ data: Data) throws -> Resource.ModelType? {
@@ -110,12 +104,27 @@ extension APIRequest: NetworkRequest {
         return try decoder.decode(Resource.ModelType.self, from: data)
     }
     
-    func execute(withCompletion completion: @escaping (Resource.ModelType?, Error?) -> Void) {
-        load(resource.url, withCompletion: completion)
+    func encode(_ payload: Resource.Payload) throws -> Data? {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .secondsSince1970
+        return try encoder.encode(payload)
+    }
+    
+    func execute(body: Resource.Payload? = nil, withCompletion completion: @escaping (Resource.ModelType?, Error?) -> Void) {
+        var data: Data? = nil
+        var request = self.request
+
+    
+        if let aBody = body {
+            data = try? self.encode(aBody)
+            request.httpBody = data
+        }
+     
+        load(request: request, withCompletion: completion)
     }
 }
 
-public final class SymbleSDKSettings {
+public final class ApiSettings {
     
     fileprivate static let session: URLSession = {
         // Here you can adjust the session configuration by your likings
@@ -124,4 +133,8 @@ public final class SymbleSDKSettings {
     }()
     
     public static var apiKey: String?
+}
+
+struct NoPayload: Codable {
+    
 }

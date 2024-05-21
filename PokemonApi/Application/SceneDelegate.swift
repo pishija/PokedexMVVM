@@ -21,7 +21,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             self.window = UIWindow(windowScene: windowScene)
         }
         
-        let navController = UINavigationController(rootViewController: PokemonListController())
+        let controller = PokemonListController(viewModel: PokemonListViewModel())
+        controller.title = NSLocalizedString("Pokedex", comment: "")
+        let navController = UINavigationController(rootViewController: controller)
+        
         self.window?.rootViewController = navController
         self.window?.overrideUserInterfaceStyle = .light
         self.window?.makeKeyAndVisible()
